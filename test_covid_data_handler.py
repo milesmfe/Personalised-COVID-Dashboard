@@ -24,3 +24,4 @@ def test_schedule_covid_updates():
 
 test_parse_csv_data()
 test_process_covid_csv_data()
+test_covid_API_request
