@@ -1,12 +1,12 @@
-import csv, json
-import sched, time
-from datetime import datetime
+from sched import Event
 from typing import Tuple
 from uk_covid19 import Cov19API
+from data import data
 
 '''
 
-Module responsible for loading and processing COVID data from csv files and cvoid api json data
+Module responsible for loading and processing COVID data using the nhs covid data api.
+Also contains functionality for loading and processing covid data from local csv files.
 Copyright | 2021 | Miles Edwards
 
 '''
@@ -50,10 +50,31 @@ def covid_API_request(location: str = 'Exeter', location_type: str = 'Itla') -> 
     try:
         return api.get_json()
     except:
-        return None
+        return {
+            'lastUpdate': '',
+            'length': 0,
+            'data': []
+        }
 
 
-def process_covid_json_data(covid_json_data: dict, structure: list[str] = ['newCasesBySpecimenDate', 'hospitalCases', 'cumDailyNsoDeathsByDeathDate']) -> dict:
+def process_covid_json_data(covid_json_data: dict, structure: list[str] = [
+        'newCasesBySpecimenDate', 'hospitalCases', 'cumDailyNsoDeathsByDeathDate']) -> dict:
+
+    '''
+    Use this function to process data recieved from the api.
+    Data returned from this function follows the following structure:
+        {
+            'lastUpdate': (The data's timestamp),
+            'length': (The number of data entries),
+            'data': {
+                ...
+                (Covid data corresponding to the *structure* argument)
+                ...
+            }
+        }
+
+    '''
+
     try:
         return {
             'lastUpdate': covid_json_data['lastUpdate'],
@@ -62,25 +83,39 @@ def process_covid_json_data(covid_json_data: dict, structure: list[str] = ['newC
         }
     except:
         return {
-            'lastUpdate': None,
+            'lastUpdate': '',
             'length': 0,
-            'data': None
+            'data': {}
         }
 
 
-def schedule_covid_updates(update_interval: int, update_name: str) -> bool:
-    s = sched.scheduler(time.time, time.sleep)
-    s.enter(update_interval, 1, lambda: save_covid_json_data(update_name))
+def schedule_covid_updates(update_interval: int, update_name: str) -> Event:
+    return data.update_scheduler.enter(delay=update_interval, priority=1, action=update_covid_data)
+
+
+def update_covid_data():
+    local: list = covid_API_request(
+        location=data.config_data['dashboard']['location'], location_type='Itla').get('data')
     try:
-        s.run()
-        return True
+        data.config_data['dashboard']['local_7day_infections'] = \
+        sum(list(filter(None, [x['newCasesBySpecimenDate'] for x in local[1:]]))[0:7])
     except:
-        return False
+        data.config_data['dashboard']['local_7day_infections'] = 'N/A'
 
-
-def save_covid_json_data(update_name: str):
-    with open('covid_data.json', 'w') as covid_data:
-        local = process_covid_json_data(covid_API_request())
-        nation = process_covid_json_data(covid_API_request(location='England', location_type='nation'))
-        json.dump({'update_name': update_name, 'nation': nation, 'local': local}, covid_data)
-        covid_data.close()
+    national: list = covid_API_request(
+        location=data.config_data['dashboard']['nation_location'], location_type='nation').get('data')
+    try:
+        data.config_data['dashboard']['national_7day_infections'] = \
+        sum(list(filter(None, [x['newCasesBySpecimenDate'] for x in national[1:]]))[0:7])
+    except:
+        data.config_data['dashboard']['national_7day_infections'] = 'N/A'
+    try:
+        data.config_data['dashboard']['hospital_cases'] = \
+        list(filter(None, [x['hospitalCases'] for x in national]))[0]
+    except:
+        data.config_data['dashboard']['hospital_cases'] = 'N/A'
+    try:
+        data.config_data['dashboard']['deaths_total'] = \
+        list(filter(None, [x['cumDailyNsoDeathsByDeathDate'] for x in national]))[0]
+    except:
+        data.config_data['dashboard']['deaths_total'] = 'N/A'
