@@ -4,6 +4,8 @@
 Ensure you have the following python modules installed:
 flask, sched
 
+You can view the program on GitHub or clone it with this link: "https://github.com/milesmfe/Personalised-COVID-Dashboard.git"
+
 In order to make use of the news features, you will need to enter a news api key into the config.json file, such a key can be obtained here: "https://newsapi.org/" 
 
 ## Using the program
