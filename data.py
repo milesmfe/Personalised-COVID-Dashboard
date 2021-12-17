@@ -22,7 +22,8 @@ class data:
     '''
 
     update_scheduler = sched.scheduler(time, sleep)
-
+    update_events = {}
+    
     '''
     When python processes this object (when the module is imported),
     the program attempts to open the configuration file.
@@ -60,6 +61,19 @@ class data:
             config_data = template
             json.dump(config_data, config_file)
             config_file.close()    
+
+
+    @staticmethod
+    def remove_update(update_title: str):
+        updated_list = []
+        for x in data.config_data['dashboard']['updates']:
+            if x['title'] != update_title:
+                updated_list.append(x)
+            else:
+                removed_update = x['title']
+        data.config_data['dashboard']['updates'] = updated_list
+        data.update_scheduler.cancel(data.update_events.get(removed_update)['event'])
+        del(data.update_events[removed_update])
 
 
     @staticmethod

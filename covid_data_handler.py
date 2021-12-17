@@ -1,6 +1,7 @@
 from sched import Event
 from typing import Tuple
 from uk_covid19 import Cov19API
+from covid_news_handling import update_news
 from data import data
 
 '''
@@ -90,10 +91,10 @@ def process_covid_json_data(covid_json_data: dict, structure: list[str] = [
 
 
 def schedule_covid_updates(update_interval: int, update_name: str) -> Event:
-    return data.update_scheduler.enter(delay=update_interval, priority=1, action=update_covid_data)
+    return data.update_scheduler.enter(delay=update_interval, priority=1, action=lambda: update_covid_data(update_name))
 
 
-def update_covid_data():
+def update_covid_data(update_name: str = None):
     local: list = covid_API_request(
         location=data.config_data['dashboard']['location'], location_type='Itla').get('data')
     try:
@@ -119,3 +120,10 @@ def update_covid_data():
         list(filter(None, [x['cumDailyNsoDeathsByDeathDate'] for x in national]))[0]
     except:
         data.config_data['dashboard']['deaths_total'] = 'N/A'
+
+    if update_name:
+        if data.update_events[update_name].get('repeat'):
+            schedule_covid_updates(data.update_events[update_name].get('time'),
+                data.update_events[update_name].get('title'))
+        else:
+            data.remove_update(update_title=update_name)
